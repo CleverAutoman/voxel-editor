@@ -107,20 +107,31 @@ export default function VoxelEditor() {
     setVoxels(storeRef.current.entries());
   }, []);
 
-  const makeStatus = (coord: Coord, colorId: number | null): VoxelStatus => ({ coord, colorId });
+  const makeStatus = (coord: Coord[], colorId: number | null): VoxelStatus => ({ coord, colorId });
 
-  const getStatusAt = (coord: Coord): VoxelStatus => {
-    const existing = storeRef.current.getVoxel(coord.x, coord.y, coord.z);
-    return makeStatus(coord, existing?.colorId ?? null);
+  const getStatusAt = (coord: Coord[]): VoxelStatus => {
+    const existingColors = coord
+      .map((c) => storeRef.current.getVoxel(c.x, c.y, c.z)?.colorId)
+      .filter((colorId): colorId is number => colorId !== undefined);
+
+    if (existingColors.length === 0) {
+      return makeStatus(coord, null);
+    }
+
+    return makeStatus(coord, existingColors[0]);
   };
 
   const applyStatus = useCallback((status: VoxelStatus) => {
     const { coord, colorId } = status;
     if (colorId === null) {
-      storeRef.current.removeVoxel(coord.x, coord.y, coord.z);
+      for (const c of coord) {
+        storeRef.current.removeVoxel(c.x, c.y, c.z);
+      }
       return;
     }
-    storeRef.current.setVoxel({ x: coord.x, y: coord.y, z: coord.z, colorId });
+    for (const c of coord) {
+      storeRef.current.setVoxel({ ...c, colorId });
+    }
   }, []);
 
   const placeVoxel = (coord: Coord, options?: { force?: boolean; trackHistory?: boolean }) => {
@@ -129,10 +140,10 @@ export default function VoxelEditor() {
       return;
     }
 
-    const prevStatus = getStatusAt(coord);
+    const prevStatus = getStatusAt([coord]);
     storeRef.current.setVoxel({ ...coord, colorId: selectedColorId });
     if (trackHistory) {
-      recordOperation("CREATE", prevStatus, makeStatus(coord, selectedColorId));
+      recordOperation("CREATE", prevStatus, makeStatus([coord], selectedColorId));
     }
     rebuild();
   };
@@ -144,10 +155,10 @@ export default function VoxelEditor() {
       return;
     }
 
-    const prevStatus = makeStatus(coord, existing.colorId);
+    const prevStatus = makeStatus([coord], existing.colorId);
     storeRef.current.removeVoxel(coord.x, coord.y, coord.z);
     if (trackHistory) {
-      recordOperation("DELETE", prevStatus, makeStatus(coord, null));
+      recordOperation("DELETE", prevStatus, makeStatus([coord], null));
     }
     rebuild();
   };
@@ -158,10 +169,10 @@ export default function VoxelEditor() {
     if (!existing || existing.colorId === selectedColorId) {
       return;
     }
-    const prevStatus = makeStatus(coord, existing.colorId);
+    const prevStatus = makeStatus([coord], existing.colorId);
     storeRef.current.setVoxel({ ...existing, colorId: selectedColorId });
     if (trackHistory) {
-      recordOperation("UPDATE_COLOR", prevStatus, makeStatus(coord, selectedColorId));
+      recordOperation("UPDATE_COLOR", prevStatus, makeStatus([coord], selectedColorId));
     }
     rebuild();
   };
@@ -302,12 +313,24 @@ export default function VoxelEditor() {
     try {
       const generated = generateVoxelsFromDsl(dslInput, selectedColorId);
       let created = 0;
+      const createdCoords: Coord[] = [];
+      let createdColorId: number | null = null;
       for (const voxel of generated) {
         if (voxel.y < 0 || storeRef.current.hasVoxel(voxel.x, voxel.y, voxel.z)) {
           continue;
         }
         storeRef.current.setVoxel(voxel);
         created += 1;
+        createdCoords.push({ x: voxel.x, y: voxel.y, z: voxel.z });
+        createdColorId = voxel.colorId;
+      }
+
+      if (created > 0 && createdColorId !== null) {
+        recordOperation(
+          "DSL_GENERATE",
+          makeStatus(createdCoords, null),
+          makeStatus(createdCoords, createdColorId)
+        );
       }
       rebuild();
       setDslMessage(`Generated ${created} voxel(s).`);

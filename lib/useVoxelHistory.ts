@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import { Coord } from "@/lib/voxelStore";
 
-export type OperationType = "CREATE" | "UPDATE_COLOR" | "DELETE";
+export type OperationType = "CREATE" | "UPDATE_COLOR" | "DELETE" | "DSL_GENERATE";
 
 export type VoxelStatus = {
-  coord: Coord;
+  coord: Coord[];
   colorId: number | null;
 };
 
@@ -32,9 +32,26 @@ export function useVoxelHistory(maxHistory = 10) {
     });
   }, []);
 
+  const hasStatusChanged = useCallback((prevStatus: VoxelStatus, newStatus: VoxelStatus): boolean => {
+    if (prevStatus.colorId !== newStatus.colorId) {
+      return true;
+    }
+    if (prevStatus.coord.length !== newStatus.coord.length) {
+      return true;
+    }
+    for (let i = 0; i < prevStatus.coord.length; i += 1) {
+      const p = prevStatus.coord[i];
+      const n = newStatus.coord[i];
+      if (p.x !== n.x || p.y !== n.y || p.z !== n.z) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
   const recordOperation = useCallback(
     (operationType: OperationType, prevStatus: VoxelStatus, newStatus: VoxelStatus) => {
-      if (prevStatus.colorId === newStatus.colorId) {
+      if (!hasStatusChanged(prevStatus, newStatus)) {
         return;
       }
 
@@ -52,7 +69,7 @@ export function useVoxelHistory(maxHistory = 10) {
       redoStackRef.current = [];
       syncCounts();
     },
-    [maxHistory, syncCounts]
+    [maxHistory, syncCounts, hasStatusChanged]
   );
 
   const undo = useCallback(

@@ -15,16 +15,17 @@ This project is a browser voxel editor built with Next.js, TypeScript and Three.
   - [x] Color palette
   - [x] Color update
 - [ ] Undo / redo history
-  - [ ] Undo
-  - [ ] Redo
-- [ ] Save and load scenes
-  - [ ] save into JSON
-  - [ ] load from JSON
-  - [ ] UI tabs
-- [ ] Generate a voxel structure from a text description
-  - [ ] asd
-- [ ] Performance optimizations
-  - [ ] Color-based rendering groups using `InstancedMesh` for better performance.
+  - [X] Undo
+  - [X] Redo
+  - [ ] Support batch Generation
+- [x] Save and load scenes
+  - [x] save into JSON
+  - [x] load from JSON
+  - [x] UI tabs
+- [x] Generate a voxel structure from a text description
+  - [x] square, pyramid, sphere
+- [x] Performance optimizations
+  - [x] Color-based rendering groups using `InstancedMesh` for better performance.
 
 
 - [x] Grid-aligned editing: left click to place, `Shift + left click` to delete.
