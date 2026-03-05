@@ -33,7 +33,7 @@
   - [x] load from JSON
   - [x] UI tabs
 - [x] Generate a voxel structure from a text description
-  - [x] square, pyramid, sphere
+  - [x] box, pyramid, sphere
 - [x] Performance optimizations
   - [x] Color-based rendering groups using `InstancedMesh` for better performance.
 
@@ -43,7 +43,7 @@
 - [x] Two edit target modes:
   - [x] **Add mode**: place at `hitCoord + faceNormal`.
   - [x] **Updating mode**: target the currently hit voxel (`hitCoord`).
-- [x] Context menu actions (Add, Paint, Delete) on voxel/ground targets.
+- [x] Context menu actions (Paint, Delete) on voxel/ground targets.
 - [x] Camera controls: scroll wheel zoom, middle-button drag rotate, right-button drag pan.
 
 --- 
@@ -85,7 +85,7 @@ The editor supports generating structures from predefined shapes.
 
 Available generators:
 
-- **Square**
+- **Box**
 - **Pyramid**
 - **Sphere**
 

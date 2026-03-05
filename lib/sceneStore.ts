@@ -311,7 +311,6 @@ export async function loadSceneFromVox(file: File): Promise<VoxSceneEntity> {
     throw new Error("Invalid VOX file: missing XYZI chunk.");
   }
 
-  const colorIdByHex = new Map<string, number>();
   const paletteEntries: Array<[number, string]> = [];
   const entities: Voxel[] = [];
 
@@ -324,9 +323,6 @@ export async function loadSceneFromVox(file: File): Promise<VoxSceneEntity> {
     const rgba = rgbaValues[paletteIndex - 1] ?? { r: 255, g: 255, b: 255 };
     const hex = rgbaToHex(Number(rgba.r ?? 255), Number(rgba.g ?? 255), Number(rgba.b ?? 255));
     const colorId = paletteIndex - 1;
-    if (!colorIdByHex.has(hex)) {
-      colorIdByHex.set(hex, colorId);
-    }
     if (!paletteEntries.find((entryItem) => entryItem[0] === colorId)) {
       paletteEntries.push([colorId, hex]);
     }
@@ -334,5 +330,6 @@ export async function loadSceneFromVox(file: File): Promise<VoxSceneEntity> {
     entities.push({ x, y, z, colorId });
   }
 
+  paletteEntries.sort((a, b) => a[0] - b[0]);
   return { entities, palette: paletteEntries };
 }

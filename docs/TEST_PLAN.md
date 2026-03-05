@@ -169,15 +169,15 @@
 
 ## 5. Structure Generation
 
-### Generate square ✅
+### Generate box ✅
 
 **Steps**
 
-1. Run the **square generator**.
+1. Run the **box generator**.
 
 **Expected Result**
 
-- A square voxel structure appears in the scene.
+- A box voxel structure appears in the scene.
 
 ---
 

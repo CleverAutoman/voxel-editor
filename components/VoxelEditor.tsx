@@ -7,7 +7,13 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import PopupNotification from "@/components/PopupNotification";
 import VoxelContextMenu, { VoxelContextMenuState } from "@/components/VoxelContextMenu";
-import { loadSceneEntity, loadSceneFromVox, saveSceneAsVox, saveSceneEntity } from "@/lib/sceneStore";
+import {
+  loadSceneEntity,
+  loadSceneFromVox,
+  paletteEntriesToMap,
+  saveSceneAsVox,
+  saveSceneEntity
+} from "@/lib/sceneStore";
 import { VoxelStatus, useVoxelHistory } from "@/lib/useVoxelHistory";
 import { generateVoxelsFromDsl } from "@/lib/voxelDsl";
 import { Coord, Voxel, VoxelStore, calculateToCoordWithNormal, keyToCoord, toKey } from "@/lib/voxelStore";
@@ -18,7 +24,7 @@ type GroupRender = {
   indexToKey: string[];
 };
 
-const PALETTE = new Map<number, string>([
+const DEFAULT_PALETTE = new Map<number, string>([
   [0, "#ef4444"],
   [1, "#f97316"],
   [2, "#eab308"],
@@ -78,6 +84,7 @@ export default function VoxelEditor() {
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
   const voxFileInputRef = useRef<HTMLInputElement | null>(null);
   const { counts: historySize, recordOperation, undo, redo } = useVoxelHistory(10);
+  const [palette, setPalette] = useState<Map<number, string>>(() => new Map(DEFAULT_PALETTE));
   const [selectedColorId, setSelectedColorId] = useState(0);
   const [updating, setUpdating] = useState(false);
   const [voxels, setVoxels] = useState<Voxel[]>(() => {
@@ -368,7 +375,7 @@ export default function VoxelEditor() {
       ? [controlsRef.current.target.x, controlsRef.current.target.y, controlsRef.current.target.z]
       : [0, 0, 0];
 
-    saveSceneEntity(PALETTE, storeRef.current.entries(), {
+    saveSceneEntity(palette, storeRef.current.entries(), {
       position: cameraPosition,
       target,
       zoom: cameraRef.current?.zoom
@@ -380,6 +387,16 @@ export default function VoxelEditor() {
   const loadSceneFromJsonFile = async (file: File) => {
     try {
       const scene = await loadSceneEntity(file);
+      const loadedPalette = paletteEntriesToMap(scene.palette);
+      const mergedPalette =
+        loadedPalette.size > 0
+          ? new Map<number, string>([...DEFAULT_PALETTE.entries(), ...loadedPalette.entries()])
+          : new Map(DEFAULT_PALETTE);
+      setPalette(mergedPalette);
+      if (!mergedPalette.has(selectedColorId)) {
+        const firstColorId = mergedPalette.keys().next().value;
+        setSelectedColorId(typeof firstColorId === "number" ? firstColorId : 0);
+      }
       storeRef.current.clear();
       for (const voxel of scene.entities) {
         if (voxel.y < 0) {
@@ -410,7 +427,7 @@ export default function VoxelEditor() {
   /** Saves the current scene to a local VOX file. */
   const saveCurrentSceneAsVox = async () => {
     try {
-      await saveSceneAsVox(PALETTE, storeRef.current.entries());
+      await saveSceneAsVox(palette, storeRef.current.entries());
       setDslMessage("Scene saved as VOX.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save VOX file.";
@@ -422,6 +439,16 @@ export default function VoxelEditor() {
   const loadSceneFromVoxFile = async (file: File) => {
     try {
       const voxScene = await loadSceneFromVox(file);
+      const loadedPalette = paletteEntriesToMap(voxScene.palette);
+      const mergedPalette =
+        loadedPalette.size > 0
+          ? new Map<number, string>([...DEFAULT_PALETTE.entries(), ...loadedPalette.entries()])
+          : new Map(DEFAULT_PALETTE);
+      setPalette(mergedPalette);
+      if (!mergedPalette.has(selectedColorId)) {
+        const firstColorId = mergedPalette.keys().next().value;
+        setSelectedColorId(typeof firstColorId === "number" ? firstColorId : 0);
+      }
       storeRef.current.clear();
       for (const voxel of voxScene.entities) {
         storeRef.current.setVoxel(voxel);
@@ -449,7 +476,7 @@ export default function VoxelEditor() {
           <div className="panel-section">
             <h2 className="panel-title">Color Choosing</h2>
             <div className="palette">
-              {[...PALETTE.entries()].map(([colorId, color]) => (
+              {[...palette.entries()].map(([colorId, color]) => (
                 <button
                   key={colorId}
                   className={`swatch ${selectedColorId === colorId ? "active" : ""}`}
@@ -607,7 +634,7 @@ export default function VoxelEditor() {
               <InstancedVoxelGroup
                 key={group.colorId}
                 group={group}
-                color={PALETTE.get(group.colorId) ?? "#f8fafc"}
+                color={palette.get(group.colorId) ?? "#f8fafc"}
                 onPointerMove={handleVoxelPointerMove(group)}
                 onPointerDown={handleVoxelPointerDown(group)}
                 onContextMenu={handleVoxelContextMenu(group)}
