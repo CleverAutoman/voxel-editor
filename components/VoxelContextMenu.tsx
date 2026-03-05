@@ -25,6 +25,7 @@ export default function VoxelContextMenu(props: VoxelContextMenuProps) {
       style={{ left: menu.x, top: menu.y }}
       onClick={(event) => event.stopPropagation()}
     >
+      <button onClick={onAdd}>Add voxel here</button>
       <button onClick={onPaint} disabled={!menu.canDelete}>
         Paint voxel with selected color
       </button>
