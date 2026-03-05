@@ -68,7 +68,7 @@ Then open [http://localhost:3000](http://localhost:3000).
 | Remove voxel | Left click + shift |
 | Edit voxel | Right click when in UPDATING mode |
 | Undo | cmd + z |
-| Redo | cmd + shift + z / cmd + y |
+| Redo | cmd + shift + z |
 
 #### Toolbar
 
