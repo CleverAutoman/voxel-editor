@@ -415,37 +415,71 @@ export default function VoxelEditor() {
     <main>
       <div className="app-shell">
         <aside className="sidebar">
-          <h1>Voxel Editor</h1>
-          <p className="muted">Click to place blocks, hold Shift and click to delete. Scroll to zoom, middle button drag to rotate, right-click to pan.</p>
-
-          <div className="palette">
-            {[...PALETTE.entries()].map(([colorId, color]) => (
-              <button
-                key={colorId}
-                className={`swatch ${selectedColorId === colorId ? "active" : ""}`}
-                style={{ background: color }}
-                onClick={() => setSelectedColorId(colorId)}
-                aria-label={`color ${colorId}`}
-              />
-            ))}
+          <div className="panel-section">
+            <h1>Voxel Editor</h1>
+            <p className="panel-text">
+              Click to place blocks, hold Shift and click to delete. Scroll to zoom, middle button drag to rotate,
+              right-click to pan.
+            </p>
           </div>
 
-          <div className="dsl-panel">
-            <label htmlFor="dsl-input">DSL Generate</label>
+          <div className="panel-section">
+            <h2 className="panel-title">Color Choosing</h2>
+            <div className="palette">
+              {[...PALETTE.entries()].map(([colorId, color]) => (
+                <button
+                  key={colorId}
+                  className={`swatch ${selectedColorId === colorId ? "active" : ""}`}
+                  style={{ background: color }}
+                  onClick={() => setSelectedColorId(colorId)}
+                  aria-label={`color ${colorId}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="panel-section">
+            <h2 className="panel-title">Mode Switcher</h2>
+            <button className="ui-button" onClick={() => setUpdating((prev) => !prev)}>
+              Mode: {updating ? "Updating (no normal)" : "Add (with normal)"}
+            </button>
+          </div>
+
+          <div className="panel-section dsl-panel">
+            <h2 className="panel-title">DSL Generator</h2>
             <input
+              className="ui-input"
               id="dsl-input"
               value={dslInput}
               onChange={(event) => setDslInput(event.target.value)}
               placeholder="box 0 4 2 4 0 0 1"
             />
-            <button onClick={runDslGenerate}>Run Generate</button>
+            <button className="ui-button" onClick={runDslGenerate}>
+              Run Generate
+            </button>
+            <p className="panel-text">
+              Examples: `box 0 6 3 6 0 1 0`, `sphere 2 5 0 5 0`, `pyramid 4 10 6 10 0 1 0` (standard x,y,z, y is
+              height)
+            </p>
+          </div>
+
+          <div className="panel-section">
+            <h2 className="panel-title">Save and Load</h2>
             <div className="history-actions">
-              <button onClick={saveCurrentSceneAsJson}>Save Scene as JSON</button>
-              <button onClick={() => jsonFileInputRef.current?.click()}>Load Scene from JSON</button>
+              <button className="ui-button" onClick={saveCurrentSceneAsJson}>
+                Save Scene as JSON
+              </button>
+              <button className="ui-button" onClick={() => jsonFileInputRef.current?.click()}>
+                Load Scene from JSON
+              </button>
             </div>
             <div className="history-actions">
-              <button onClick={() => void saveCurrentSceneAsVox()}>Save Scene as VOX</button>
-              <button onClick={() => voxFileInputRef.current?.click()}>Load Scene from VOX</button>
+              <button className="ui-button" onClick={() => void saveCurrentSceneAsVox()}>
+                Save Scene as VOX
+              </button>
+              <button className="ui-button" onClick={() => voxFileInputRef.current?.click()}>
+                Load Scene from VOX
+              </button>
             </div>
             <input
               ref={jsonFileInputRef}
@@ -475,21 +509,17 @@ export default function VoxelEditor() {
                 event.target.value = "";
               }}
             />
-            <p className="muted">
-              Examples: `box 0 6 3 6 0 1 0`, `sphere 2 5 0 5 0`, `pyramid 4 10 6 10 0 1 0` (standard x,y,z, y is
-              height)
-            </p>
           </div>
 
-          <div className="stats">
+          <div className="panel-section stats">
+            <h2 className="panel-title">Status and History</h2>
             <span>Color ID: {selectedColorId}</span>
             <span>Voxel Count: {voxelCount}</span>
-            <span>Storage: Sparse Map&lt;string, Voxel&gt;</span>
-            <button onClick={() => setUpdating((prev) => !prev)}>
-              Mode: {updating ? "Updating (no normal)" : "Add (with normal)"}
-            </button>
+            <span>Undo Size: {historySize.undo}</span>
+            <span>Redo Size: {historySize.redo}</span>
             <div className="history-actions">
               <button
+                className="ui-button"
                 onClick={() => {
                   if (undo(applyStatus)) {
                     rebuild();
@@ -497,9 +527,10 @@ export default function VoxelEditor() {
                 }}
                 disabled={historySize.undo === 0}
               >
-                Undo ({historySize.undo})
+                Undo
               </button>
               <button
+                className="ui-button"
                 onClick={() => {
                   if (redo(applyStatus)) {
                     rebuild();
@@ -507,7 +538,7 @@ export default function VoxelEditor() {
                 }}
                 disabled={historySize.redo === 0}
               >
-                Redo ({historySize.redo})
+                Redo
               </button>
             </div>
           </div>
