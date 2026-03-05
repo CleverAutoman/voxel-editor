@@ -2,9 +2,11 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas, ThreeEvent } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import VoxelContextMenu, { VoxelContextMenuState } from "@/components/VoxelContextMenu";
+import { VoxelStatus, useVoxelHistory } from "@/lib/useVoxelHistory";
+import { generateVoxelsFromDsl } from "@/lib/voxelDsl";
 import { Coord, Voxel, VoxelStore, calculateToCoordWithNormal, keyToCoord, toKey } from "@/lib/voxelStore";
 
 type GroupRender = {
@@ -23,22 +25,6 @@ const PALETTE = new Map<number, string>([
   [6, "#8b5cf6"],
   [7, "#ec4899"]
 ]);
-
-const MAX_HISTORY = 10;
-
-type OperationType = "CREATE" | "UPDATE_COLOR" | "DELETE";
-
-type VoxelStatus = {
-  coord: Coord;
-  colorId: number | null;
-};
-
-type Operation = {
-  operationType: OperationType;
-  timestamp: number;
-  prevStatus: VoxelStatus;
-  newStatus: VoxelStatus;
-};
 
 function InstancedVoxelGroup(props: {
   group: GroupRender;
@@ -82,17 +68,17 @@ function InstancedVoxelGroup(props: {
 
 export default function VoxelEditor() {
   const storeRef = useRef<VoxelStore>(new VoxelStore());
-  const historyRef = useRef<Operation[]>([]);
-  const redoRef = useRef<Operation[]>([]);
+  const { counts: historySize, recordOperation, undo, redo } = useVoxelHistory(10);
   const [selectedColorId, setSelectedColorId] = useState(0);
   const [updating, setUpdating] = useState(false);
-  const [historySize, setHistorySize] = useState({ undo: 0, redo: 0 });
   const [voxels, setVoxels] = useState<Voxel[]>(() => {
     storeRef.current.setVoxel({ x: 0, y: 0, z: 0, colorId: 0 });
     return storeRef.current.entries();
   });
   const [hover, setHover] = useState<Coord | null>(null);
   const [contextMenu, setContextMenu] = useState<VoxelContextMenuState | null>(null);
+  const [dslInput, setDslInput] = useState(`box ${selectedColorId} 4 2 4 0 0 0`);
+  const [dslMessage, setDslMessage] = useState<string | null>(null);
 
   const grouped = useMemo<GroupRender[]>(() => {
     const byColor = new Map<number, Voxel[]>();
@@ -111,14 +97,9 @@ export default function VoxelEditor() {
 
   const voxelCount = voxels.length;
 
-  const rebuild = () => setVoxels(storeRef.current.entries());
-
-  const syncHistorySize = () => {
-    setHistorySize({
-      undo: historyRef.current.length,
-      redo: redoRef.current.length
-    });
-  };
+  const rebuild = useCallback(() => {
+    setVoxels(storeRef.current.entries());
+  }, []);
 
   const makeStatus = (coord: Coord, colorId: number | null): VoxelStatus => ({ coord, colorId });
 
@@ -127,39 +108,14 @@ export default function VoxelEditor() {
     return makeStatus(coord, existing?.colorId ?? null);
   };
 
-  const applyStatus = (status: VoxelStatus) => {
+  const applyStatus = useCallback((status: VoxelStatus) => {
     const { coord, colorId } = status;
     if (colorId === null) {
       storeRef.current.removeVoxel(coord.x, coord.y, coord.z);
       return;
     }
     storeRef.current.setVoxel({ x: coord.x, y: coord.y, z: coord.z, colorId });
-  };
-
-  const pushOperation = (operation: Operation) => {
-    if (historyRef.current.length === MAX_HISTORY) {
-      historyRef.current.shift();
-    }
-    historyRef.current.push(operation);
-    redoRef.current = [];
-    syncHistorySize();
-  };
-
-  const recordOperation = (
-    operationType: OperationType,
-    prevStatus: VoxelStatus,
-    newStatus: VoxelStatus
-  ) => {
-    if (prevStatus.colorId === newStatus.colorId) {
-      return;
-    }
-    pushOperation({
-      operationType,
-      timestamp: Date.now(),
-      prevStatus,
-      newStatus
-    });
-  };
+  }, []);
 
   const placeVoxel = (coord: Coord, options?: { force?: boolean; trackHistory?: boolean }) => {
     const { force = false, trackHistory = true } = options ?? {};
@@ -204,31 +160,6 @@ export default function VoxelEditor() {
     rebuild();
   };
 
-  const undo = () => {
-    const operation = historyRef.current.pop();
-    if (!operation) {
-      return;
-    }
-    applyStatus(operation.prevStatus);
-    redoRef.current.push(operation);
-    syncHistorySize();
-    rebuild();
-  };
-
-  const redo = () => {
-    const operation = redoRef.current.pop();
-    if (!operation) {
-      return;
-    }
-    if (historyRef.current.length === MAX_HISTORY) {
-      historyRef.current.shift();
-    }
-    historyRef.current.push(operation);
-    applyStatus(operation.newStatus);
-    syncHistorySize();
-    rebuild();
-  };
-
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -238,46 +169,23 @@ export default function VoxelEditor() {
 
       if (isUndo) {
         event.preventDefault();
-        const operation = historyRef.current.pop();
-        if (!operation) {
-          return;
+        if (undo(applyStatus)) {
+          rebuild();
         }
-        const prev = operation.prevStatus;
-        if (prev.colorId === null) {
-          storeRef.current.removeVoxel(prev.coord.x, prev.coord.y, prev.coord.z);
-        } else {
-          storeRef.current.setVoxel({ x: prev.coord.x, y: prev.coord.y, z: prev.coord.z, colorId: prev.colorId });
-        }
-        redoRef.current.push(operation);
-        setHistorySize({ undo: historyRef.current.length, redo: redoRef.current.length });
-        setVoxels(storeRef.current.entries());
         return;
       }
 
       if (isRedo) {
         event.preventDefault();
-        const operation = redoRef.current.pop();
-        if (!operation) {
-          return;
+        if (redo(applyStatus)) {
+          rebuild();
         }
-        if (historyRef.current.length === MAX_HISTORY) {
-          historyRef.current.shift();
-        }
-        historyRef.current.push(operation);
-        const next = operation.newStatus;
-        if (next.colorId === null) {
-          storeRef.current.removeVoxel(next.coord.x, next.coord.y, next.coord.z);
-        } else {
-          storeRef.current.setVoxel({ x: next.coord.x, y: next.coord.y, z: next.coord.z, colorId: next.colorId });
-        }
-        setHistorySize({ undo: historyRef.current.length, redo: redoRef.current.length });
-        setVoxels(storeRef.current.entries());
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [undo, redo, applyStatus, rebuild]);
 
   const openContextMenu = (event: ThreeEvent<MouseEvent>, target: Coord) => {
     event.stopPropagation();
@@ -384,6 +292,25 @@ export default function VoxelEditor() {
     openContextMenu(event, coord);
   };
 
+  const runDslGenerate = () => {
+    try {
+      const generated = generateVoxelsFromDsl(dslInput, selectedColorId);
+      let created = 0;
+      for (const voxel of generated) {
+        if (voxel.y < 0 || storeRef.current.hasVoxel(voxel.x, voxel.y, voxel.z)) {
+          continue;
+        }
+        storeRef.current.setVoxel(voxel);
+        created += 1;
+      }
+      rebuild();
+      setDslMessage(`Generated ${created} voxel(s).`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to parse DSL command.";
+      setDslMessage(message);
+    }
+  };
+
   return (
     <main>
       <div className="app-shell">
@@ -403,6 +330,19 @@ export default function VoxelEditor() {
             ))}
           </div>
 
+          <div className="dsl-panel">
+            <label htmlFor="dsl-input">DSL Generate</label>
+            <input
+              id="dsl-input"
+              value={dslInput}
+              onChange={(event) => setDslInput(event.target.value)}
+              placeholder="box 0 4 2 4 0 0 0"
+            />
+            <button onClick={runDslGenerate}>Run Generate</button>
+            <p className="muted">Examples: `box 0 6 3 6`, `sphere 2 5 0 5 0`, `pyramid 4 10 6 10`</p>
+            {dslMessage && <p className="dsl-message">{dslMessage}</p>}
+          </div>
+
           <div className="stats">
             <span>Color ID: {selectedColorId}</span>
             <span>Voxel Count: {voxelCount}</span>
@@ -411,10 +351,24 @@ export default function VoxelEditor() {
               Mode: {updating ? "Updating (no normal)" : "Add (with normal)"}
             </button>
             <div className="history-actions">
-              <button onClick={undo} disabled={historySize.undo === 0}>
+              <button
+                onClick={() => {
+                  if (undo(applyStatus)) {
+                    rebuild();
+                  }
+                }}
+                disabled={historySize.undo === 0}
+              >
                 Undo ({historySize.undo})
               </button>
-              <button onClick={redo} disabled={historySize.redo === 0}>
+              <button
+                onClick={() => {
+                  if (redo(applyStatus)) {
+                    rebuild();
+                  }
+                }}
+                disabled={historySize.redo === 0}
+              >
                 Redo ({historySize.redo})
               </button>
             </div>

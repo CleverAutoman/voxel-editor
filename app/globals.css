@@ -76,6 +76,44 @@ main {
   font-size: 0.92rem;
 }
 
+.dsl-panel {
+  border-top: 1px solid #1f2a44;
+  padding-top: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dsl-panel label {
+  font-size: 0.9rem;
+  color: #dbe5fb;
+}
+
+.dsl-panel input {
+  width: 100%;
+  border: 1px solid #304269;
+  border-radius: 8px;
+  background: #0f1729;
+  color: #e2e8f0;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.dsl-panel button {
+  border: 1px solid #304269;
+  border-radius: 8px;
+  background: #1a2742;
+  color: #e2e8f0;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.dsl-message {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #bfdbfe;
+}
+
 .canvas-wrap {
   position: relative;
 }
