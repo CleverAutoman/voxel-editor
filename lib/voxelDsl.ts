@@ -10,6 +10,17 @@ function toInt(value: string, name: string): number {
   return parsed;
 }
 
+function requireNonNegative(value: number, name: string): void {
+  if (value < 0) {
+    throw new Error(`${name} must be >= 0, got ${value}.`);
+  }
+}
+
+function toEngineOrigin(inputX: number, inputY: number, inputZ: number): { ox: number; oy: number; oz: number } {
+  // Keep DSL coordinates in standard xyz order.
+  return { ox: inputX, oy: inputY, oz: inputZ };
+}
+
 function makeBox(colorId: number, w: number, h: number, d: number, ox: number, oy: number, oz: number): Voxel[] {
   const voxels: Voxel[] = [];
   for (let x = 0; x < w; x += 1) {
@@ -70,42 +81,55 @@ export function generateVoxelsFromDsl(command: string, fallbackColorId: number):
 
   if (kind === "box") {
     if (args.length < 4) {
-      throw new Error("Usage: box <colorId> <w> <h> <d> [ox oy oz]");
+      throw new Error("Usage: box <colorId> <w> <h> <d> [x y z]");
     }
     const colorId = toInt(args[0], "colorId");
     const w = toInt(args[1], "width");
-    const h = toInt(args[2], "height");
-    const d = toInt(args[3], "depth");
-    const ox = args[4] ? toInt(args[4], "ox") : 0;
-    const oy = args[5] ? toInt(args[5], "oy") : 0;
-    const oz = args[6] ? toInt(args[6], "oz") : 0;
+    const h = toInt(args[3], "height");
+    const d = toInt(args[2], "depth");
+    requireNonNegative(w, "width");
+    requireNonNegative(h, "height");
+    requireNonNegative(d, "depth");
+
+    const inputX = args[4] ? toInt(args[4], "x") : 0;
+    const inputY = args[5] ? toInt(args[6], "y") : 0;
+    const inputZ = args[6] ? toInt(args[5], "z") : 0;
+    const { ox, oy, oz } = toEngineOrigin(inputX, inputY, inputZ);
     return makeBox(colorId, w, h, d, ox, oy, oz);
   }
 
   if (kind === "sphere") {
     if (args.length < 2) {
-      throw new Error("Usage: sphere <colorId> <r> [ox oy oz]");
+      throw new Error("Usage: sphere <colorId> <r> [x y z]");
     }
     const colorId = toInt(args[0], "colorId");
     const r = toInt(args[1], "radius");
-    const ox = args[2] ? toInt(args[2], "ox") : 0;
-    // Lift by radius by default, so full sphere stays above ground (y >= 0).
-    const oy = args[3] ? toInt(args[3], "oy") : r;
-    const oz = args[4] ? toInt(args[4], "oz") : 0;
+    requireNonNegative(r, "radius");
+
+    const inputX = args[2] ? toInt(args[2], "x") : 0;
+    // y is height in standard xyz, default to radius so full sphere stays above ground.
+    const inputY = args[3] ? toInt(args[4], "y") : r;
+    const inputZ = args[4] ? toInt(args[3], "z") : 0;
+    const { ox, oy, oz } = toEngineOrigin(inputX, inputY, inputZ);
     return makeSphere(colorId, r, ox, oy, oz);
   }
 
   if (kind === "pyramid") {
     if (args.length < 4) {
-      throw new Error("Usage: pyramid <colorId> <w> <h> <d> [ox oy oz]");
+      throw new Error("Usage: pyramid <colorId> <w> <h> <d> [x y z]");
     }
     const colorId = toInt(args[0], "colorId");
     const w = toInt(args[1], "width");
-    const h = toInt(args[2], "height");
-    const d = toInt(args[3], "depth");
-    const ox = args[4] ? toInt(args[4], "ox") : 0;
-    const oy = args[5] ? toInt(args[5], "oy") : 0;
-    const oz = args[6] ? toInt(args[6], "oz") : 0;
+    const h = toInt(args[3], "height");
+    const d = toInt(args[2], "depth");
+    requireNonNegative(w, "width");
+    requireNonNegative(h, "height");
+    requireNonNegative(d, "depth");
+
+    const inputX = args[4] ? toInt(args[4], "x") : 0;
+    const inputY = args[5] ? toInt(args[6], "y") : 0;
+    const inputZ = args[6] ? toInt(args[5], "z") : 0;
+    const { ox, oy, oz } = toEngineOrigin(inputX, inputY, inputZ);
     return makePyramid(colorId, w, h, d, ox, oy, oz);
   }
 

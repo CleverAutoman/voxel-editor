@@ -114,6 +114,37 @@ main {
   color: #bfdbfe;
 }
 
+.popup-notification {
+  position: fixed;
+  right: 14px;
+  top: 14px;
+  z-index: 60;
+  min-width: 240px;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid #3b4f79;
+  background: rgba(15, 23, 41, 0.96);
+  color: #dbeafe;
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.5);
+}
+
+.popup-notification button {
+  border: 1px solid #3b4f79;
+  border-radius: 6px;
+  background: #1b2742;
+  color: #dbeafe;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+  padding: 0;
+}
+
 .canvas-wrap {
   position: relative;
 }

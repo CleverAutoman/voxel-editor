@@ -14,11 +14,13 @@ This project is a browser voxel editor built with Next.js, TypeScript and Three.
 - [x] Color selection
   - [x] Color palette
   - [x] Color update
-- [ ] Undo / redo history
+- [x] Undo / redo history
   - [X] Undo
   - [X] Redo
-  - [ ] Support batch Generation
+  - [x] Support batch Generation
 - [x] Save and load scenes
+  - [ ] Export .vox
+  - [ ] Import .vox
   - [x] save into JSON
   - [x] load from JSON
   - [x] UI tabs

@@ -5,6 +5,7 @@ import { Canvas, ThreeEvent } from "@react-three/fiber";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import PopupNotification from "@/components/PopupNotification";
 import VoxelContextMenu, { VoxelContextMenuState } from "@/components/VoxelContextMenu";
 import { loadSceneEntity, loadSceneFromVox, saveSceneAsVox, saveSceneEntity } from "@/lib/sceneStore";
 import { VoxelStatus, useVoxelHistory } from "@/lib/useVoxelHistory";
@@ -314,15 +315,14 @@ export default function VoxelEditor() {
       const generated = generateVoxelsFromDsl(dslInput, selectedColorId);
       let created = 0;
       const createdCoords: Coord[] = [];
-      let createdColorId: number | null = null;
+      const createdColorId: number | null = selectedColorId;
       for (const voxel of generated) {
         if (voxel.y < 0 || storeRef.current.hasVoxel(voxel.x, voxel.y, voxel.z)) {
           continue;
         }
-        storeRef.current.setVoxel(voxel);
+        storeRef.current.setVoxel({ ...voxel, colorId: selectedColorId });
         created += 1;
         createdCoords.push({ x: voxel.x, y: voxel.y, z: voxel.z });
-        createdColorId = voxel.colorId;
       }
 
       if (created > 0 && createdColorId !== null) {
@@ -436,7 +436,7 @@ export default function VoxelEditor() {
               id="dsl-input"
               value={dslInput}
               onChange={(event) => setDslInput(event.target.value)}
-              placeholder="box 0 4 2 4 0 0 0"
+              placeholder="box 0 4 2 4 0 0 1"
             />
             <button onClick={runDslGenerate}>Run Generate</button>
             <div className="history-actions">
@@ -475,8 +475,10 @@ export default function VoxelEditor() {
                 event.target.value = "";
               }}
             />
-            <p className="muted">Examples: `box 0 6 3 6`, `sphere 2 5 0 5 0`, `pyramid 4 10 6 10`</p>
-            {dslMessage && <p className="dsl-message">{dslMessage}</p>}
+            <p className="muted">
+              Examples: `box 0 6 3 6 0 1 0`, `sphere 2 5 0 5 0`, `pyramid 4 10 6 10 0 1 0` (standard x,y,z, y is
+              height)
+            </p>
           </div>
 
           <div className="stats">
@@ -594,6 +596,7 @@ export default function VoxelEditor() {
           <p className="tip">Shift + Click: delete block, right-click on grid/voxel: open actions</p>
         </section>
       </div>
+      <PopupNotification message={dslMessage} onClose={() => setDslMessage(null)} />
     </main>
   );
 }
