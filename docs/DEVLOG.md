@@ -81,7 +81,7 @@ This allows raycast instanceId to be mapped back to voxel coordinates.
     """
     # InstancedMesh 
     class Box:
-        def _init_(colorId, voxel)
+        def _init_(self, colorId, voxel)
 
     # coordinations -> box
     boxByCoordinates : Map<(x, y, z), Box>
@@ -134,3 +134,150 @@ This allows raycast instanceId to be mapped back to voxel coordinates.
 
 
 ### Stretch Features
+#### Undo / redo history
+- using two stacks
+  - Stack1: ops history
+  - Stack2: un-redo history
+  - 
+- pseudocode
+```python
+histories = []
+un_redo = []
+MAX_HISTORY = 10
+class OperationType(Enum):
+  CREATE = 1
+  UPDATE_COLOR = 2
+  DELETE = 3
+
+@dataclass
+class Status:
+    color: str | None
+    block_coordination: tuple
+
+class Operation:
+  def _init_(self, operation_type, timestamp, prev_status, new_status):
+
+# called when doing new ops
+def add_to_stack(operation_type, new_color):
+  if len(history) == MAX_HISTORY: 
+    del histories[0]
+  prev_color = get_prev_color()
+  histories.append(Operation(operation_type, Status(prev_color), Status(new_color)))
+  if len(un_redo) != 0: 
+    un_redo.clear()
+  
+def apply(status):
+  pt = status.coordination
+  color = status.color
+  if pt not in blocks:
+    # create_new_block(pt, color)
+  if color != None:
+    # change_color()
+  else:
+    # delete_block(pt)
+
+
+def undo():
+  if len(history) == 0: 
+    # pop up reminder: no more undo steps
+    return 
+  # pop up top history and add to un_redo
+  apply(history[0].prev_status)
+  
+def redo():
+  if len(un_redo) == 0: 
+    # pop up reminder: no more undo steps
+    return 
+  # pop up top history and add to un_redo
+  apply(history[0].new_status)
+
+```
+#### Save and load scenes (MagicaVoxel has an existing .vox format)
+- scene data structure storage
+- pseudocode
+```Typescript
+export type sceneEntity = {
+  version: number;
+  timestamp: number;
+  palette: Map<number, string>;
+  entities: Voxel[];
+
+  camera: {
+    position: [number, number, number];
+    target: [number, number, number];
+    zoom?: number;
+  };
+
+  
+
+
+```
+#### Generate a voxel structure from a text description, code snippet, or function.
+- Support DSL 
+  - Format: Geometry color ...size_vars
+```python
+class VoxelGenerator(ABC):
+  @abstractmethod
+  def generate(self):
+    pass
+
+class BoxGenerator(VoxelGenerator):
+  def __init__(self, color, w=10, h=10, d=10):
+    self.color = color
+    self.w = w
+    self.h = h
+    self.d = d
+  def generate(self):
+    voxels = []
+
+    for x in range(self.w):
+      for y in range(self.h):
+        for z in range(self.d):
+          voxels.append(Box((x,y,z), color))
+    return voxels
+
+class SphereGenerator(VoxelGenerator):
+  def __init__(self, color, r=10):
+    self.color = color
+    self.r = r
+  def generate(self):
+    voxels = []
+
+    r = self.r
+
+    for x in range(-r, r + 1):
+      for y in range(-r, r + 1):
+        for z in range(-r, r + 1):
+          if x*x + y*y + z*z <= r*r:
+            voxels.append(Box((x,y,z), color))
+    return voxels
+
+class PyramidGenerator(VoxelGenerator):
+  def __init__(self,color, w=10, h=10, d=10):
+    self.color = color
+    self.w = w
+    self.h = h
+    self.d = d
+  def generate(self):
+    voxels = []
+    y1, y2, x1, x2 = 0, self.w, 0, self,h
+    for z in range(self.d):
+      for y in range(y1,y2+1):
+        for z in range(x1,x2+1):
+          voxels.append(Box((x,y,z), color))
+      y1 += 1
+      y2 -= 1
+      x1 += 1
+      x2 -= 1
+    return voxels
+
+voxelByType: Map<type, VoxelGenerator>
+def voxelByStr(s):
+  ops = s.split(' ')
+  type = ops[0]
+  if type not in voxelByType: return
+  voxelGen = voxelByType[type](ops[1], ops[2:])
+  return voxel.generate()
+```
+
+#### Performance optimizations

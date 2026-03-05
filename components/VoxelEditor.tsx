@@ -4,7 +4,9 @@ import { OrbitControls } from "@react-three/drei";
 import { Canvas, ThreeEvent } from "@react-three/fiber";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import VoxelContextMenu, { VoxelContextMenuState } from "@/components/VoxelContextMenu";
+import { loadSceneEntity, loadSceneFromVox, saveSceneAsVox, saveSceneEntity } from "@/lib/sceneStore";
 import { VoxelStatus, useVoxelHistory } from "@/lib/useVoxelHistory";
 import { generateVoxelsFromDsl } from "@/lib/voxelDsl";
 import { Coord, Voxel, VoxelStore, calculateToCoordWithNormal, keyToCoord, toKey } from "@/lib/voxelStore";
@@ -68,6 +70,10 @@ function InstancedVoxelGroup(props: {
 
 export default function VoxelEditor() {
   const storeRef = useRef<VoxelStore>(new VoxelStore());
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
+  const voxFileInputRef = useRef<HTMLInputElement | null>(null);
   const { counts: historySize, recordOperation, undo, redo } = useVoxelHistory(10);
   const [selectedColorId, setSelectedColorId] = useState(0);
   const [updating, setUpdating] = useState(false);
@@ -311,6 +317,77 @@ export default function VoxelEditor() {
     }
   };
 
+  const saveCurrentSceneAsJson = () => {
+    const cameraPosition: [number, number, number] = cameraRef.current
+      ? [cameraRef.current.position.x, cameraRef.current.position.y, cameraRef.current.position.z]
+      : [10, 10, 10];
+    const target: [number, number, number] = controlsRef.current
+      ? [controlsRef.current.target.x, controlsRef.current.target.y, controlsRef.current.target.z]
+      : [0, 0, 0];
+
+    saveSceneEntity(PALETTE, storeRef.current.entries(), {
+      position: cameraPosition,
+      target,
+      zoom: cameraRef.current?.zoom
+    });
+    setDslMessage("Scene saved as JSON.");
+  };
+
+  const loadSceneFromJsonFile = async (file: File) => {
+    try {
+      const scene = await loadSceneEntity(file);
+      storeRef.current.clear();
+      for (const voxel of scene.entities) {
+        if (voxel.y < 0) {
+          continue;
+        }
+        storeRef.current.setVoxel(voxel);
+      }
+      rebuild();
+      setDslMessage(`Loaded scene v${scene.version} with ${scene.entities.length} voxel(s).`);
+
+      if (cameraRef.current) {
+        cameraRef.current.position.set(...scene.camera.position);
+        if (typeof scene.camera.zoom === "number") {
+          cameraRef.current.zoom = scene.camera.zoom;
+          cameraRef.current.updateProjectionMatrix();
+        }
+      }
+      if (controlsRef.current) {
+        controlsRef.current.target.set(...scene.camera.target);
+        controlsRef.current.update();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load scene file.";
+      setDslMessage(message);
+    }
+  };
+
+  const saveCurrentSceneAsVox = async () => {
+    try {
+      await saveSceneAsVox(PALETTE, storeRef.current.entries());
+      setDslMessage("Scene saved as VOX.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save VOX file.";
+      setDslMessage(message);
+    }
+  };
+
+  const loadSceneFromVoxFile = async (file: File) => {
+    try {
+      const voxScene = await loadSceneFromVox(file);
+      storeRef.current.clear();
+      for (const voxel of voxScene.entities) {
+        storeRef.current.setVoxel(voxel);
+      }
+      rebuild();
+      setDslMessage(`Loaded VOX with ${voxScene.entities.length} voxel(s).`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load VOX file.";
+      setDslMessage(message);
+    }
+  };
+
   return (
     <main>
       <div className="app-shell">
@@ -339,6 +416,42 @@ export default function VoxelEditor() {
               placeholder="box 0 4 2 4 0 0 0"
             />
             <button onClick={runDslGenerate}>Run Generate</button>
+            <div className="history-actions">
+              <button onClick={saveCurrentSceneAsJson}>Save Scene as JSON</button>
+              <button onClick={() => jsonFileInputRef.current?.click()}>Load Scene from JSON</button>
+            </div>
+            <div className="history-actions">
+              <button onClick={() => void saveCurrentSceneAsVox()}>Save Scene as VOX</button>
+              <button onClick={() => voxFileInputRef.current?.click()}>Load Scene from VOX</button>
+            </div>
+            <input
+              ref={jsonFileInputRef}
+              type="file"
+              accept="application/json"
+              style={{ display: "none" }}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) {
+                  return;
+                }
+                void loadSceneFromJsonFile(file);
+                event.target.value = "";
+              }}
+            />
+            <input
+              ref={voxFileInputRef}
+              type="file"
+              accept=".vox,application/octet-stream"
+              style={{ display: "none" }}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) {
+                  return;
+                }
+                void loadSceneFromVoxFile(file);
+                event.target.value = "";
+              }}
+            />
             <p className="muted">Examples: `box 0 6 3 6`, `sphere 2 5 0 5 0`, `pyramid 4 10 6 10`</p>
             {dslMessage && <p className="dsl-message">{dslMessage}</p>}
           </div>
@@ -376,7 +489,12 @@ export default function VoxelEditor() {
         </aside>
 
         <section className="canvas-wrap" onClick={() => setContextMenu(null)}>
-          <Canvas camera={{ position: [10, 10, 10], fov: 50 }}>
+          <Canvas
+            camera={{ position: [10, 10, 10], fov: 50 }}
+            onCreated={({ camera }) => {
+              cameraRef.current = camera as THREE.PerspectiveCamera;
+            }}
+          >
             <color attach="background" args={["#0b1220"]} />
             <ambientLight intensity={0.55} />
             <directionalLight position={[8, 16, 6]} intensity={0.85} />
@@ -418,12 +536,13 @@ export default function VoxelEditor() {
             )}
 
             <OrbitControls
+              ref={controlsRef}
               makeDefault
               enableDamping
               enableZoom
               dampingFactor={0.08}
               minDistance={3}
-              maxDistance={45}
+              maxDistance={90}
               maxPolarAngle={Math.PI / 2.02}
               mouseButtons={{
                 LEFT: THREE.MOUSE.PAN,

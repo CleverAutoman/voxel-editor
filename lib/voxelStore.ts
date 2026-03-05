@@ -29,6 +29,10 @@ export function calculateToCoordWithNormal(coord: Coord, normal: Vector3): Coord
 export class VoxelStore {
   private readonly voxels = new Map<string, Voxel>();
 
+  public clear(): void {
+    this.voxels.clear();
+  }
+
   public setVoxel(voxel: Voxel): void {
     this.voxels.set(toKey(voxel.x, voxel.y, voxel.z), voxel);
   }

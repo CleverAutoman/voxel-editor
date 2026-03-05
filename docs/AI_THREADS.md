@@ -55,3 +55,20 @@ AI assisted with:
 ````
 ## debugging raycast placement logic
 
+
+## Design Idea Review
+
+### Redo/Undo data structure
+```Markdown
+Yeah — the overall shape (history stack + redo stack + max history + Operation object) is on the right track. A few fixes will make it “correct + Pythonic + bug-free”.
+
+Issues in your draft
+- histories vs history name mismatch (you use both).
+- un_redo naming is confusing; standard is redo_stack.
+- __init__ is misspelled as _init_ (needs double underscores).
+- Operation.__init__ signature doesn’t match how you construct it (you pass no timestamp, and your class expects timestamp).
+- In add_to_stack, un_redo = [] will create a local variable unless you declare global un_redo. Better: redo_stack.clear().
+- You wrote undo() twice; second one should be redo().
+- del histories[0] on a list is O(n). For MAX=10 it’s fine; for bigger, use deque(maxlen=...).
+
+```
