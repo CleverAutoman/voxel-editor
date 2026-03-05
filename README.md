@@ -101,6 +101,7 @@ Generated structures are treated as a **single batch operation** and can be undo
 5. Save the scene.
 6. Reload the page and load the saved file.
 
+---
 ### Future Work
 - More DSL operations 
   - Support more command types, such as fill, hollow, translate.
