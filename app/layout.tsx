@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description: "A sparse-map voxel editor built with Three.js and Next.js."
 };
 
+/** Provides the app-wide HTML shell and global styling wrapper. */
 export default function RootLayout({
   children
 }: Readonly<{

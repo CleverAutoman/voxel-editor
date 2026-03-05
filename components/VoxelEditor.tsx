@@ -29,6 +29,7 @@ const PALETTE = new Map<number, string>([
   [7, "#ec4899"]
 ]);
 
+/** Renders one instanced voxel group and forwards pointer events. */
 function InstancedVoxelGroup(props: {
   group: GroupRender;
   color: string;
@@ -69,6 +70,7 @@ function InstancedVoxelGroup(props: {
   );
 }
 
+/** Orchestrates voxel editing, generation, and scene import/export interactions. */
 export default function VoxelEditor() {
   const storeRef = useRef<VoxelStore>(new VoxelStore());
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -104,12 +106,15 @@ export default function VoxelEditor() {
 
   const voxelCount = voxels.length;
 
+  /** Refreshes React state from the mutable voxel store. */
   const rebuild = useCallback(() => {
     setVoxels(storeRef.current.entries());
   }, []);
 
+  /** Builds a history status object for one or more coordinates. */
   const makeStatus = (coord: Coord[], colorId: number | null): VoxelStatus => ({ coord, colorId });
 
+  /** Captures current store status for a coordinate list. */
   const getStatusAt = (coord: Coord[]): VoxelStatus => {
     const existingColors = coord
       .map((c) => storeRef.current.getVoxel(c.x, c.y, c.z)?.colorId)
@@ -122,6 +127,7 @@ export default function VoxelEditor() {
     return makeStatus(coord, existingColors[0]);
   };
 
+  /** Applies a status snapshot back into the voxel store. */
   const applyStatus = useCallback((status: VoxelStatus) => {
     const { coord, colorId } = status;
     if (colorId === null) {
@@ -135,6 +141,7 @@ export default function VoxelEditor() {
     }
   }, []);
 
+  /** Adds a voxel and records a create history entry. */
   const placeVoxel = (coord: Coord, options?: { force?: boolean; trackHistory?: boolean }) => {
     const { force = false, trackHistory = true } = options ?? {};
     if (coord.y < 0 || storeRef.current.hasVoxel(coord.x, coord.y, coord.z) || (updating && !force)) {
@@ -149,6 +156,7 @@ export default function VoxelEditor() {
     rebuild();
   };
 
+  /** Deletes a voxel and records a delete history entry. */
   const removeVoxel = (coord: Coord, options?: { trackHistory?: boolean }) => {
     const { trackHistory = true } = options ?? {};
     const existing = storeRef.current.getVoxel(coord.x, coord.y, coord.z);
@@ -164,6 +172,7 @@ export default function VoxelEditor() {
     rebuild();
   };
 
+  /** Recolors a voxel and records a color-update history entry. */
   const repaintVoxel = (coord: Coord, options?: { trackHistory?: boolean }) => {
     const { trackHistory = true } = options ?? {};
     const existing = storeRef.current.getVoxel(coord.x, coord.y, coord.z);
@@ -179,6 +188,7 @@ export default function VoxelEditor() {
   };
 
   useEffect(() => {
+    /** Handles keyboard shortcuts for undo and redo. */
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       const withCommand = event.metaKey || event.ctrlKey;
@@ -205,6 +215,7 @@ export default function VoxelEditor() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [undo, redo, applyStatus, rebuild]);
 
+  /** Opens the custom context menu at a screen position. */
   const openContextMenu = (event: ThreeEvent<MouseEvent>, target: Coord) => {
     event.stopPropagation();
     event.nativeEvent.preventDefault();
@@ -219,6 +230,7 @@ export default function VoxelEditor() {
     });
   };
 
+  /** Resolves target coordinate based on current edit mode. */
   const resolveTargetCoord = (hitCoord: Coord, normal: THREE.Vector3): Coord => {
     if (updating) {
       return hitCoord;
@@ -226,6 +238,7 @@ export default function VoxelEditor() {
     return calculateToCoordWithNormal(hitCoord, normal);
   };
 
+  /** Updates hover target when moving over an existing voxel. */
   const handleVoxelPointerMove =
     (group: GroupRender) => (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
@@ -238,6 +251,7 @@ export default function VoxelEditor() {
       setHover(target.y < 0 ? null : target);
     };
 
+  /** Handles voxel clicks for add/delete interactions. */
   const handleVoxelPointerDown =
     (group: GroupRender) => (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
@@ -258,6 +272,7 @@ export default function VoxelEditor() {
       placeVoxel(resolveTargetCoord(hitCoord, event.face.normal));
     };
 
+  /** Handles context menu requests on existing voxels. */
   const handleVoxelContextMenu =
     (group: GroupRender) => (event: ThreeEvent<MouseEvent>) => {
       if (event.instanceId === undefined || !event.face) {
@@ -268,6 +283,7 @@ export default function VoxelEditor() {
       openContextMenu(event, target);
     };
 
+  /** Updates hover target when moving over the ground plane. */
   const handleGroundMove = (event: ThreeEvent<PointerEvent>) => {
     if (updating) {
       return;
@@ -281,6 +297,7 @@ export default function VoxelEditor() {
     setHover(coord);
   };
 
+  /** Handles ground clicks for add/delete interactions. */
   const handleGroundDown = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
     setContextMenu(null);
@@ -301,6 +318,7 @@ export default function VoxelEditor() {
     placeVoxel(coord);
   };
 
+  /** Handles context menu requests on the ground plane. */
   const handleGroundContextMenu = (event: ThreeEvent<MouseEvent>) => {
     const coord = {
       x: Math.round(event.point.x),
@@ -310,17 +328,18 @@ export default function VoxelEditor() {
     openContextMenu(event, coord);
   };
 
+  /** Runs DSL generation and records it as one history operation. */
   const runDslGenerate = () => {
     try {
       const generated = generateVoxelsFromDsl(dslInput, selectedColorId);
       let created = 0;
       const createdCoords: Coord[] = [];
-      const createdColorId: number | null = selectedColorId;
+      const createdColorId: number | null = generated[0]?.colorId ?? null;
       for (const voxel of generated) {
         if (voxel.y < 0 || storeRef.current.hasVoxel(voxel.x, voxel.y, voxel.z)) {
           continue;
         }
-        storeRef.current.setVoxel({ ...voxel, colorId: selectedColorId });
+        storeRef.current.setVoxel(voxel);
         created += 1;
         createdCoords.push({ x: voxel.x, y: voxel.y, z: voxel.z });
       }
@@ -340,6 +359,7 @@ export default function VoxelEditor() {
     }
   };
 
+  /** Saves the current scene to a local JSON file. */
   const saveCurrentSceneAsJson = () => {
     const cameraPosition: [number, number, number] = cameraRef.current
       ? [cameraRef.current.position.x, cameraRef.current.position.y, cameraRef.current.position.z]
@@ -356,6 +376,7 @@ export default function VoxelEditor() {
     setDslMessage("Scene saved as JSON.");
   };
 
+  /** Loads scene data from a user-selected JSON file. */
   const loadSceneFromJsonFile = async (file: File) => {
     try {
       const scene = await loadSceneEntity(file);
@@ -386,6 +407,7 @@ export default function VoxelEditor() {
     }
   };
 
+  /** Saves the current scene to a local VOX file. */
   const saveCurrentSceneAsVox = async () => {
     try {
       await saveSceneAsVox(PALETTE, storeRef.current.entries());
@@ -396,6 +418,7 @@ export default function VoxelEditor() {
     }
   };
 
+  /** Loads scene data from a user-selected VOX file. */
   const loadSceneFromVoxFile = async (file: File) => {
     try {
       const voxScene = await loadSceneFromVox(file);
@@ -458,8 +481,20 @@ export default function VoxelEditor() {
               Run Generate
             </button>
             <p className="panel-text">
-              Examples: `box 0 6 3 6 0 1 0`, `sphere 2 5 0 5 0`, `pyramid 4 10 6 10 0 1 0` (standard x,y,z, y is
-              height)
+              Format: `TYPE [colorID] [shape vars] [offset vars]`
+              <br />
+              Supported types: `box`, `sphere`, `pyramid`
+              <br />
+              Vars: `colorID` is palette id; `box/pyramid` use `[w d h]`; `sphere` uses `[r]`; optional
+              `[offset vars]` is `[x y z]` where `z` is height.
+              <br />
+              Examples:
+              <br />
+              `box: 0 6 6 3 0 1 0`
+              <br />
+              `sphere: 2 5 0 0 5`
+              <br />
+              `pyramid: 4 10 10 6 0 1 0`
             </p>
           </div>
 
@@ -610,10 +645,6 @@ export default function VoxelEditor() {
           {contextMenu && (
             <VoxelContextMenu
               menu={contextMenu}
-              onAdd={() => {
-                placeVoxel(contextMenu.target, { force: true });
-                setContextMenu(null);
-              }}
               onPaint={() => {
                 repaintVoxel(contextMenu.target);
                 setContextMenu(null);

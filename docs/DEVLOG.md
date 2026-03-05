@@ -53,8 +53,7 @@ Keyboard:
 ### Color selection
 - Color storage
   - Store full color per voxel v.s. Palette index
-  - 
-### Stretch Features
+
 
 ## Design & Implementations
 ### Data Structures
@@ -138,7 +137,6 @@ This allows raycast instanceId to be mapped back to voxel coordinates.
 - using two stacks
   - Stack1: ops history
   - Stack2: un-redo history
-  - 
 - pseudocode
 ```python
 histories = []
@@ -281,3 +279,7 @@ def voxelByStr(s):
 ```
 
 #### Performance optimizations
+- InstancedMesh + meshBuckets grouped by colorId
+- HashMap: 
+  - colorById
+  - meshByCoordination

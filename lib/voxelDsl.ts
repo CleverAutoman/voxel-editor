@@ -2,6 +2,7 @@ import { Voxel } from "@/lib/voxelStore";
 
 type GeneratorKind = "box" | "sphere" | "pyramid";
 
+/** Parses an integer argument with a readable error message. */
 function toInt(value: string, name: string): number {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) {
@@ -10,17 +11,27 @@ function toInt(value: string, name: string): number {
   return parsed;
 }
 
+/** Ensures generated dimensions and radius are not negative. */
 function requireNonNegative(value: number, name: string): void {
   if (value < 0) {
     throw new Error(`${name} must be >= 0, got ${value}.`);
   }
 }
 
-function toEngineOrigin(inputX: number, inputY: number, inputZ: number): { ox: number; oy: number; oz: number } {
-  // Keep DSL coordinates in standard xyz order.
-  return { ox: inputX, oy: inputY, oz: inputZ };
+/** Maps DSL origin (x, y, zHeight) to engine origin (x, yHeight, z). */
+function toEngineOrigin(inputX: number, inputY: number, inputZHeight: number): { ox: number; oy: number; oz: number } {
+  return { ox: inputX, oy: inputZHeight, oz: inputY };
 }
 
+/** Parses optional origin tuple [x y zHeight]. */
+function parseOrigin(args: string[]): { ox: number; oy: number; oz: number } {
+  const inputX = args[0] ? toInt(args[0], "x") : 0;
+  const inputY = args[1] ? toInt(args[1], "y") : 0;
+  const inputZHeight = args[2] ? toInt(args[2], "z") : 0;
+  return toEngineOrigin(inputX, inputY, inputZHeight);
+}
+
+/** Generates a filled box voxel set from dimensions and origin. */
 function makeBox(colorId: number, w: number, h: number, d: number, ox: number, oy: number, oz: number): Voxel[] {
   const voxels: Voxel[] = [];
   for (let x = 0; x < w; x += 1) {
@@ -33,6 +44,7 @@ function makeBox(colorId: number, w: number, h: number, d: number, ox: number, o
   return voxels;
 }
 
+/** Generates a filled sphere voxel set from radius and origin. */
 function makeSphere(colorId: number, r: number, ox: number, oy: number, oz: number): Voxel[] {
   const voxels: Voxel[] = [];
   for (let x = -r; x <= r; x += 1) {
@@ -47,6 +59,7 @@ function makeSphere(colorId: number, r: number, ox: number, oy: number, oz: numb
   return voxels;
 }
 
+/** Generates a stepped pyramid voxel set from dimensions and origin. */
 function makePyramid(colorId: number, w: number, h: number, d: number, ox: number, oy: number, oz: number): Voxel[] {
   const voxels: Voxel[] = [];
   for (let layer = 0; layer < h; layer += 1) {
@@ -69,6 +82,7 @@ function makePyramid(colorId: number, w: number, h: number, d: number, ox: numbe
   return voxels;
 }
 
+/** Parses a DSL command and returns generated voxels for that shape. */
 export function generateVoxelsFromDsl(command: string, fallbackColorId: number): Voxel[] {
   const trimmed = command.trim();
   if (!trimmed) {
@@ -81,20 +95,17 @@ export function generateVoxelsFromDsl(command: string, fallbackColorId: number):
 
   if (kind === "box") {
     if (args.length < 4) {
-      throw new Error("Usage: box <colorId> <w> <h> <d> [x y z]");
+      throw new Error("Usage: box <colorId> <w> <d> <h> [x y z]");
     }
     const colorId = toInt(args[0], "colorId");
     const w = toInt(args[1], "width");
-    const h = toInt(args[3], "height");
     const d = toInt(args[2], "depth");
+    const h = toInt(args[3], "height");
     requireNonNegative(w, "width");
     requireNonNegative(h, "height");
     requireNonNegative(d, "depth");
 
-    const inputX = args[4] ? toInt(args[4], "x") : 0;
-    const inputY = args[5] ? toInt(args[6], "y") : 0;
-    const inputZ = args[6] ? toInt(args[5], "z") : 0;
-    const { ox, oy, oz } = toEngineOrigin(inputX, inputY, inputZ);
+    const { ox, oy, oz } = parseOrigin(args.slice(4, 7));
     return makeBox(colorId, w, h, d, ox, oy, oz);
   }
 
@@ -106,30 +117,26 @@ export function generateVoxelsFromDsl(command: string, fallbackColorId: number):
     const r = toInt(args[1], "radius");
     requireNonNegative(r, "radius");
 
-    const inputX = args[2] ? toInt(args[2], "x") : 0;
-    // y is height in standard xyz, default to radius so full sphere stays above ground.
-    const inputY = args[3] ? toInt(args[4], "y") : r;
-    const inputZ = args[4] ? toInt(args[3], "z") : 0;
-    const { ox, oy, oz } = toEngineOrigin(inputX, inputY, inputZ);
+    const hasOriginZ = args[4] !== undefined;
+    const { ox, oy, oz } = hasOriginZ
+      ? parseOrigin(args.slice(2, 5))
+      : toEngineOrigin(args[2] ? toInt(args[2], "x") : 0, args[3] ? toInt(args[3], "y") : 0, r);
     return makeSphere(colorId, r, ox, oy, oz);
   }
 
   if (kind === "pyramid") {
     if (args.length < 4) {
-      throw new Error("Usage: pyramid <colorId> <w> <h> <d> [x y z]");
+      throw new Error("Usage: pyramid <colorId> <w> <d> <h> [x y z]");
     }
     const colorId = toInt(args[0], "colorId");
     const w = toInt(args[1], "width");
-    const h = toInt(args[3], "height");
     const d = toInt(args[2], "depth");
+    const h = toInt(args[3], "height");
     requireNonNegative(w, "width");
     requireNonNegative(h, "height");
     requireNonNegative(d, "depth");
 
-    const inputX = args[4] ? toInt(args[4], "x") : 0;
-    const inputY = args[5] ? toInt(args[6], "y") : 0;
-    const inputZ = args[6] ? toInt(args[5], "z") : 0;
-    const { ox, oy, oz } = toEngineOrigin(inputX, inputY, inputZ);
+    const { ox, oy, oz } = parseOrigin(args.slice(4, 7));
     return makePyramid(colorId, w, h, d, ox, oy, oz);
   }
 

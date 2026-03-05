@@ -8,6 +8,7 @@ type PopupNotificationProps = {
   durationMs?: number;
 };
 
+/** Shows a temporary popup notification with optional auto-dismiss. */
 export default function PopupNotification(props: PopupNotificationProps) {
   const { message, onClose, durationMs = 2600 } = props;
 

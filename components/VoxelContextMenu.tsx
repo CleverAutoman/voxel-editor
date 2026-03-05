@@ -11,13 +11,13 @@ export type VoxelContextMenuState = {
 
 type VoxelContextMenuProps = {
   menu: VoxelContextMenuState;
-  onAdd: () => void;
   onPaint: () => void;
   onDelete: () => void;
 };
 
+/** Renders the context actions for the currently targeted voxel. */
 export default function VoxelContextMenu(props: VoxelContextMenuProps) {
-  const { menu, onAdd, onPaint, onDelete } = props;
+  const { menu, onPaint, onDelete } = props;
 
   return (
     <div
@@ -25,7 +25,6 @@ export default function VoxelContextMenu(props: VoxelContextMenuProps) {
       style={{ left: menu.x, top: menu.y }}
       onClick={(event) => event.stopPropagation()}
     >
-      <button onClick={onAdd}>Add voxel here</button>
       <button onClick={onPaint} disabled={!menu.canDelete}>
         Paint voxel with selected color
       </button>

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
@@ -23,6 +24,7 @@
     "@types/three": "^0.174.0",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.30",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^4.0.18"
   }
 }

@@ -20,11 +20,13 @@ export type HistoryCounts = {
   redo: number;
 };
 
+/** Manages capped undo/redo stacks for voxel operations. */
 export function useVoxelHistory(maxHistory = 10) {
   const undoStackRef = useRef<Operation[]>([]);
   const redoStackRef = useRef<Operation[]>([]);
   const [counts, setCounts] = useState<HistoryCounts>({ undo: 0, redo: 0 });
 
+  /** Syncs derived undo/redo counters with current stacks. */
   const syncCounts = useCallback(() => {
     setCounts({
       undo: undoStackRef.current.length,
@@ -32,6 +34,7 @@ export function useVoxelHistory(maxHistory = 10) {
     });
   }, []);
 
+  /** Checks whether two statuses represent different state. */
   const hasStatusChanged = useCallback((prevStatus: VoxelStatus, newStatus: VoxelStatus): boolean => {
     if (prevStatus.colorId !== newStatus.colorId) {
       return true;
@@ -49,6 +52,7 @@ export function useVoxelHistory(maxHistory = 10) {
     return false;
   }, []);
 
+  /** Pushes one operation onto the undo stack and clears redo. */
   const recordOperation = useCallback(
     (operationType: OperationType, prevStatus: VoxelStatus, newStatus: VoxelStatus) => {
       if (!hasStatusChanged(prevStatus, newStatus)) {
@@ -72,6 +76,7 @@ export function useVoxelHistory(maxHistory = 10) {
     [maxHistory, syncCounts, hasStatusChanged]
   );
 
+  /** Applies the latest undo operation if available. */
   const undo = useCallback(
     (applyStatus: (status: VoxelStatus) => void): boolean => {
       const operation = undoStackRef.current.pop();
@@ -86,6 +91,7 @@ export function useVoxelHistory(maxHistory = 10) {
     [syncCounts]
   );
 
+  /** Applies the latest redo operation if available. */
   const redo = useCallback(
     (applyStatus: (status: VoxelStatus) => void): boolean => {
       const operation = redoStackRef.current.pop();

@@ -20,6 +20,7 @@ export type VoxSceneEntity = {
 };
 
 let versionId = 0;
+/** Serializes the current scene and triggers a JSON download. */
 export function saveSceneEntity(
   palette: Map<number, string>,
   entities: Voxel[],
@@ -44,6 +45,7 @@ export function saveSceneEntity(
   return scene;
 }
 
+/** Reads a JSON scene file and returns validated scene data. */
 export async function loadSceneEntity(file: File): Promise<SceneEntity> {
   const text = await file.text();
   const parsed = JSON.parse(text) as Partial<SceneEntity>;
@@ -70,10 +72,12 @@ export async function loadSceneEntity(file: File): Promise<SceneEntity> {
   };
 }
 
+/** Converts serialized palette entries into a color map. */
 export function paletteEntriesToMap(entries: Array<[number, string]>): Map<number, string> {
   return new Map(entries);
 }
 
+/** Converts a hex color string into RGBA bytes. */
 function hexToRgba(hex: string): { r: number; g: number; b: number; a: number } {
   const clean = hex.replace("#", "");
   const normalized = clean.length === 3 ? clean.split("").map((ch) => `${ch}${ch}`).join("") : clean;
@@ -89,21 +93,25 @@ function hexToRgba(hex: string): { r: number; g: number; b: number; a: number } 
   };
 }
 
+/** Converts RGB channels into a normalized hex color string. */
 function rgbaToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => n.toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+/** Writes a signed 32-bit integer in little-endian order. */
 function writeInt32LE(value: number): Uint8Array {
   const arr = new Uint8Array(4);
   new DataView(arr.buffer).setInt32(0, value, true);
   return arr;
 }
 
+/** Reads a signed 32-bit little-endian integer from bytes. */
 function readInt32LE(buffer: Uint8Array, offset: number): number {
   return new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getInt32(offset, true);
 }
 
+/** Encodes a four-character chunk identifier to bytes. */
 function writeAscii4(id: string): Uint8Array {
   const arr = new Uint8Array(4);
   for (let i = 0; i < 4; i += 1) {
@@ -112,6 +120,7 @@ function writeAscii4(id: string): Uint8Array {
   return arr;
 }
 
+/** Concatenates multiple byte arrays into a single array. */
 function concatBytes(parts: Uint8Array[]): Uint8Array {
   const total = parts.reduce((sum, part) => sum + part.length, 0);
   const out = new Uint8Array(total);
@@ -123,6 +132,7 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
+/** Builds one RIFF chunk with content and optional child chunks. */
 function buildChunk(id: string, content: Uint8Array, children: Uint8Array = new Uint8Array()): Uint8Array {
   return concatBytes([
     writeAscii4(id),
@@ -133,6 +143,7 @@ function buildChunk(id: string, content: Uint8Array, children: Uint8Array = new 
   ]);
 }
 
+/** Exports the current scene as a MagicaVoxel-compatible VOX file. */
 export async function saveSceneAsVox(palette: Map<number, string>, entities: Voxel[]): Promise<void> {
   const source = entities.filter((voxel) => voxel.y >= 0);
   if (source.length === 0) {
@@ -228,6 +239,7 @@ export async function saveSceneAsVox(palette: Map<number, string>, entities: Vox
   URL.revokeObjectURL(url);
 }
 
+/** Imports voxels and palette data from a VOX file. */
 export async function loadSceneFromVox(file: File): Promise<VoxSceneEntity> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== "VOX ") {
