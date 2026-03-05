@@ -4,7 +4,8 @@ import { OrbitControls } from "@react-three/drei";
 import { Canvas, ThreeEvent } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { Coord, Voxel, VoxelStore, keyToCoord, toKey } from "@/lib/voxelStore";
+import VoxelContextMenu, { VoxelContextMenuState } from "@/components/VoxelContextMenu";
+import { Coord, Voxel, VoxelStore, calculateToCoordWithNormal, keyToCoord, toKey } from "@/lib/voxelStore";
 
 type GroupRender = {
   colorId: number;
@@ -28,8 +29,9 @@ function InstancedVoxelGroup(props: {
   color: string;
   onPointerMove: (event: ThreeEvent<PointerEvent>) => void;
   onPointerDown: (event: ThreeEvent<PointerEvent>) => void;
+  onContextMenu: (event: ThreeEvent<MouseEvent>) => void;
 }) {
-  const { group, color, onPointerMove, onPointerDown } = props;
+  const { group, color, onPointerMove, onPointerDown, onContextMenu } = props;
   const meshRef = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
@@ -54,6 +56,7 @@ function InstancedVoxelGroup(props: {
       args={[undefined, undefined, group.voxels.length]}
       onPointerMove={onPointerMove}
       onPointerDown={onPointerDown}
+      onContextMenu={onContextMenu}
     >
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial color={color} roughness={0.65} metalness={0.05} />
@@ -61,22 +64,16 @@ function InstancedVoxelGroup(props: {
   );
 }
 
-function getAdjacentCoord(coord: Coord, normal: THREE.Vector3): Coord {
-  return {
-    x: coord.x + Math.round(normal.x),
-    y: coord.y + Math.round(normal.y),
-    z: coord.z + Math.round(normal.z)
-  };
-}
-
 export default function VoxelEditor() {
   const storeRef = useRef<VoxelStore>(new VoxelStore());
   const [selectedColorId, setSelectedColorId] = useState(0);
+  const [updating, setUpdating] = useState(false);
   const [voxels, setVoxels] = useState<Voxel[]>(() => {
     storeRef.current.setVoxel({ x: 0, y: 0, z: 0, colorId: 0 });
     return storeRef.current.entries();
   });
   const [hover, setHover] = useState<Coord | null>(null);
+  const [contextMenu, setContextMenu] = useState<VoxelContextMenuState | null>(null);
 
   const grouped = useMemo<GroupRender[]>(() => {
     const byColor = new Map<number, Voxel[]>();
@@ -98,7 +95,7 @@ export default function VoxelEditor() {
   const rebuild = () => setVoxels(storeRef.current.entries());
 
   const placeVoxel = (coord: Coord) => {
-    if (coord.y < 0 || storeRef.current.hasVoxel(coord.x, coord.y, coord.z)) {
+    if (coord.y < 0 || storeRef.current.hasVoxel(coord.x, coord.y, coord.z) || updating) {
       return;
     }
 
@@ -112,20 +109,58 @@ export default function VoxelEditor() {
     }
   };
 
+  const repaintVoxel = (coord: Coord) => {
+    const existing = storeRef.current.getVoxel(coord.x, coord.y, coord.z);
+    if (!existing) {
+      return;
+    }
+    storeRef.current.setVoxel({ ...existing, colorId: selectedColorId });
+    rebuild();
+  };
+
+  const openContextMenu = (event: ThreeEvent<MouseEvent>, target: Coord) => {
+    event.stopPropagation();
+    event.nativeEvent.preventDefault();
+    if (target.y < 0 || !updating) {
+      return;
+    }
+    setContextMenu({
+      x: event.nativeEvent.clientX,
+      y: event.nativeEvent.clientY,
+      target,
+      canDelete: storeRef.current.hasVoxel(target.x, target.y, target.z)
+    });
+  };
+
+  const resolveTargetCoord = (hitCoord: Coord, normal: THREE.Vector3): Coord => {
+    if (updating) {
+      return hitCoord;
+    }
+    return calculateToCoordWithNormal(hitCoord, normal);
+  };
+
   const handleVoxelPointerMove =
     (group: GroupRender) => (event: ThreeEvent<PointerEvent>) => {
+      event.stopPropagation();
       if (event.instanceId === undefined || !event.face) {
         return;
       }
 
       const hitCoord = keyToCoord(group.indexToKey[event.instanceId]);
-      const target = event.shiftKey ? hitCoord : getAdjacentCoord(hitCoord, event.face.normal);
+      if (updating && !hitCoord) {
+        return;
+      }
+      const target = resolveTargetCoord(hitCoord, event.face.normal);
       setHover(target.y < 0 ? null : target);
     };
 
   const handleVoxelPointerDown =
     (group: GroupRender) => (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
+      setContextMenu(null);
+      if (event.button === 1 || event.button === 2) {
+        return;
+      }
       if (event.instanceId === undefined || !event.face) {
         return;
       }
@@ -136,10 +171,23 @@ export default function VoxelEditor() {
         return;
       }
 
-      placeVoxel(getAdjacentCoord(hitCoord, event.face.normal));
+      placeVoxel(resolveTargetCoord(hitCoord, event.face.normal));
+    };
+
+  const handleVoxelContextMenu =
+    (group: GroupRender) => (event: ThreeEvent<MouseEvent>) => {
+      if (event.instanceId === undefined || !event.face) {
+        return;
+      }
+      const hitCoord = keyToCoord(group.indexToKey[event.instanceId]);
+      const target = resolveTargetCoord(hitCoord, event.face.normal);
+      openContextMenu(event, target);
     };
 
   const handleGroundMove = (event: ThreeEvent<PointerEvent>) => {
+    if (updating) {
+      return;
+    }
     event.stopPropagation();
     const coord = {
       x: Math.round(event.point.x),
@@ -151,6 +199,10 @@ export default function VoxelEditor() {
 
   const handleGroundDown = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
+    setContextMenu(null);
+    if (event.button === 1 || event.button === 2) {
+      return;
+    }
     const coord = {
       x: Math.round(event.point.x),
       y: 0,
@@ -165,12 +217,21 @@ export default function VoxelEditor() {
     placeVoxel(coord);
   };
 
+  const handleGroundContextMenu = (event: ThreeEvent<MouseEvent>) => {
+    const coord = {
+      x: Math.round(event.point.x),
+      y: 0,
+      z: Math.round(event.point.z)
+    };
+    openContextMenu(event, coord);
+  };
+
   return (
     <main>
       <div className="app-shell">
         <aside className="sidebar">
           <h1>Voxel Editor</h1>
-          <p className="muted">Click to place blocks, hold Shift and click to delete. Drag to orbit, scroll to zoom, right-click to pan.</p>
+          <p className="muted">Click to place blocks, hold Shift and click to delete. Scroll to zoom, middle button drag to rotate, right-click to pan.</p>
 
           <div className="palette">
             {[...PALETTE.entries()].map(([colorId, color]) => (
@@ -188,10 +249,13 @@ export default function VoxelEditor() {
             <span>Color ID: {selectedColorId}</span>
             <span>Voxel Count: {voxelCount}</span>
             <span>Storage: Sparse Map&lt;string, Voxel&gt;</span>
+            <button onClick={() => setUpdating((prev) => !prev)}>
+              Mode: {updating ? "Updating (no normal)" : "Add (with normal)"}
+            </button>
           </div>
         </aside>
 
-        <section className="canvas-wrap">
+        <section className="canvas-wrap" onClick={() => setContextMenu(null)}>
           <Canvas camera={{ position: [10, 10, 10], fov: 50 }}>
             <color attach="background" args={["#0b1220"]} />
             <ambientLight intensity={0.55} />
@@ -204,6 +268,7 @@ export default function VoxelEditor() {
               position={[0, -0.5, 0]}
               onPointerMove={handleGroundMove}
               onPointerDown={handleGroundDown}
+              onContextMenu={handleGroundContextMenu}
             >
               <planeGeometry args={[40, 40]} />
               <meshBasicMaterial visible={false} />
@@ -216,26 +281,55 @@ export default function VoxelEditor() {
                 color={PALETTE.get(group.colorId) ?? "#f8fafc"}
                 onPointerMove={handleVoxelPointerMove(group)}
                 onPointerDown={handleVoxelPointerDown(group)}
+                onContextMenu={handleVoxelContextMenu(group)}
               />
             ))}
 
             {hover && (
-              <mesh position={[hover.x, hover.y, hover.z]}>
-                <boxGeometry args={[1.02, 1.02, 1.02]} />
-                <meshBasicMaterial color="#f8fafc" wireframe />
+              <mesh position={[hover.x, hover.y, hover.z]} renderOrder={99}>
+                <boxGeometry args={[1, 1, 1]} />
+                <meshBasicMaterial
+                  color="#f8fafc"
+                  wireframe
+                  depthTest={true}
+                  depthWrite={false}
+                />
               </mesh>
             )}
 
             <OrbitControls
               makeDefault
               enableDamping
+              enableZoom
               dampingFactor={0.08}
               minDistance={3}
               maxDistance={45}
               maxPolarAngle={Math.PI / 2.02}
+              mouseButtons={{
+                LEFT: THREE.MOUSE.PAN,
+                MIDDLE: THREE.MOUSE.ROTATE,
+                RIGHT: THREE.MOUSE.PAN
+              }}
             />
           </Canvas>
-          <p className="tip">Shift + Click: delete block</p>
+          {contextMenu && (
+            <VoxelContextMenu
+              menu={contextMenu}
+              onAdd={() => {
+                placeVoxel(contextMenu.target);
+                setContextMenu(null);
+              }}
+              onPaint={() => {
+                repaintVoxel(contextMenu.target);
+                setContextMenu(null);
+              }}
+              onDelete={() => {
+                removeVoxel(contextMenu.target);
+                setContextMenu(null);
+              }}
+            />
+          )}
+          <p className="tip">Shift + Click: delete block, right-click on grid/voxel: open actions</p>
         </section>
       </div>
     </main>

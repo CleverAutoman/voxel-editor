@@ -1,3 +1,5 @@
+import type { Vector3 } from "three";
+
 export type Voxel = {
   x: number;
   y: number;
@@ -14,6 +16,14 @@ export function toKey(x: number, y: number, z: number): string {
 export function keyToCoord(key: string): Coord {
   const [x, y, z] = key.split(",").map(Number);
   return { x, y, z };
+}
+
+export function calculateToCoordWithNormal(coord: Coord, normal: Vector3): Coord {
+  return {
+    x: coord.x + Math.round(normal.x),
+    y: coord.y + Math.round(normal.y),
+    z: coord.z + Math.round(normal.z)
+  };
 }
 
 export class VoxelStore {

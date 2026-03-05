@@ -20,6 +20,18 @@ Voxel State Store
 3D Renderer
 ```
 
+## Operations
+```
+Mouse:
+  1. Left Button: Add new block
+  2. Middle Button: Rotate view
+  3. Wheel: Zoom in & Zoom out
+  4. Right Button: Multiple operations includes delete, move, change color
+Keyboard:
+  1. cmd + z: Undo
+  1. cmd + y: Redo
+```
+
 ## Technological Considerations
 ### 3D voxel grid 
 - Grid
@@ -118,6 +130,7 @@ This allows raycast instanceId to be mapped back to voxel coordinates.
         # update box if change coordinations
         # update mesh if change colors
         _display()
-
 ```
+
+
 ### Stretch Features
