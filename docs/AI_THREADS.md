@@ -1,6 +1,6 @@
 # AI Threads
 
-AI assisted me with: skeleton brainstorm
+AI assisted me throughout the project in four areas: architecture brainstorming, debugging interaction bugs, implementing feature iterations, and drafting tests/docs.
 
 ## Designing brainstorm
 Before writing code, I usually write down my initial ideas and the architecture of the system. I then use AI as a reviewer to critique the design and suggest improvements that can make the system more reliable.
