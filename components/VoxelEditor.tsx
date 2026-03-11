@@ -83,7 +83,7 @@ export default function VoxelEditor() {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const jsonFileInputRef = useRef<HTMLInputElement | null>(null);
   const voxFileInputRef = useRef<HTMLInputElement | null>(null);
-  const { counts: historySize, recordOperation, undo, redo } = useVoxelHistory(10);
+  const { counts: historySize, recordOperation, undo, redo, resetHistory } = useVoxelHistory(10);
   const [palette, setPalette] = useState<Map<number, string>>(() => new Map(DEFAULT_PALETTE));
   const [selectedColorId, setSelectedColorId] = useState(0);
   const [updating, setUpdating] = useState(false);
@@ -404,6 +404,7 @@ export default function VoxelEditor() {
         }
         storeRef.current.setVoxel(voxel);
       }
+      resetHistory();
       rebuild();
       setDslMessage(`Loaded scene v${scene.version} with ${scene.entities.length} voxel(s).`);
 
@@ -453,6 +454,7 @@ export default function VoxelEditor() {
       for (const voxel of voxScene.entities) {
         storeRef.current.setVoxel(voxel);
       }
+      resetHistory();
       rebuild();
       setDslMessage(`Loaded VOX with ${voxScene.entities.length} voxel(s).`);
     } catch (error) {

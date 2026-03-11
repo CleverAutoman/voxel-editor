@@ -111,10 +111,18 @@ export function useVoxelHistory(maxHistory = 10) {
     [maxHistory, syncCounts]
   );
 
+  /** Clears both undo and redo stacks after non-reversible scene replacement. */
+  const resetHistory = useCallback(() => {
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    syncCounts();
+  }, [syncCounts]);
+
   return {
     counts,
     recordOperation,
     undo,
-    redo
+    redo,
+    resetHistory
   };
 }
