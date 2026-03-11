@@ -517,11 +517,11 @@ export default function VoxelEditor() {
               <br />
               Examples:
               <br />
-              `box: 0 6 6 3 0 1 0`
+              `box 0 6 6 3 0 1 0`
               <br />
-              `sphere: 2 5 0 0 5`
+              `sphere 2 5 0 0 5`
               <br />
-              `pyramid: 4 10 10 6 0 1 0`
+              `pyramid 4 10 10 6 0 1 0`
             </p>
           </div>
 
