@@ -151,29 +151,26 @@ export async function saveSceneAsVox(palette: Map<number, string>, entities: Vox
   }
 
   for (const voxel of source) {
-    if (voxel.x < 0 || voxel.y < 0 || voxel.z < 0) {
-      throw new Error(
-        `VOX export requires non-negative coordinates. Found (${voxel.x}, ${voxel.y}, ${voxel.z}).`
-      );
-    }
-    if (voxel.x > 255 || voxel.y > 255 || voxel.z > 255) {
-      throw new Error(
-        `VOX export coordinate out of range [0,255]. Found (${voxel.x}, ${voxel.y}, ${voxel.z}).`
-      );
-    }
     if (voxel.colorId < 0 || voxel.colorId > 254) {
       throw new Error(`VOX export colorId must be in [0,254]. Found ${voxel.colorId}.`);
     }
   }
 
+  const minX = Math.min(...source.map((v) => v.x));
+  const minY = Math.min(...source.map((v) => v.y));
+  const minZ = Math.min(...source.map((v) => v.z));
   const maxX = Math.max(...source.map((v) => v.x));
   const maxY = Math.max(...source.map((v) => v.y));
   const maxZ = Math.max(...source.map((v) => v.z));
 
+  const offsetX = minX < 0 ? -minX : 0;
+  const offsetY = minY < 0 ? -minY : 0;
+  const offsetZ = minZ < 0 ? -minZ : 0;
+
   const size = {
-    x: maxX + 1,
-    y: maxY + 1,
-    z: maxZ + 1
+    x: maxX + offsetX + 1,
+    y: maxY + offsetY + 1,
+    z: maxZ + offsetZ + 1
   };
 
   if (size.x > 255 || size.y > 255 || size.z > 255) {
@@ -181,9 +178,9 @@ export async function saveSceneAsVox(palette: Map<number, string>, entities: Vox
   }
 
   const xyziValues = source.map((voxel) => ({
-    x: voxel.x,
-    y: voxel.y,
-    z: voxel.z,
+    x: voxel.x + offsetX,
+    y: voxel.y + offsetY,
+    z: voxel.z + offsetZ,
     i: voxel.colorId + 1
   }));
 
